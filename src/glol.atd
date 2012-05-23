@@ -1,0 +1,25 @@
+type glol = {
+  glol:version;
+  ?base:string option;
+  ?transmit:xmitmeta option;
+  ?li:li option;
+  cache: (string * glol) list <json repr="object">;
+  ?glom:glom option;
+}
+
+type xmitmeta = {
+  ?date:string option;
+  ?content_location:string option;
+  ?etag:string option;
+}
+
+type li = [
+| Href of string <json name="href">
+| Define of (string * string option) <json name="define">
+| Concat of li list <json name="concat">
+| Rename of ((string * string) list * li) <json name="rename">
+| Export of (string list * li) <json name="export">
+]
+
+type version <ocaml from="Glo"> = abstract
+type glom <ocaml predef module="Yojson.Safe" t="json"> = abstract
