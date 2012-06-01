@@ -1,10 +1,12 @@
-PP = OCAMLRUNPARAM=b ../../../src/gloc.d.byte
+GLOC = OCAMLRUNPARAM=b ../../../src/gloc.byte
+
+ARGS:= 
 
 INS := $(wildcard *.in)
 OUTS := $(INS:.in=.out)
 
 %.out : %.in %.true
-	@$(PP) < $*.in &> $@ || true
+	@$(GLOC) $(ARGS) < $*.in &> $@ || true
 	@if diff -u $*.true $@ > $*.diff; then \
 	rm $*.diff;\
 	else cat $*.diff;\

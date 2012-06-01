@@ -41,7 +41,7 @@ let gloc args callback errback =
     Lwt.return (Js.Unsafe.fun_call callback [||])
   with
     | Gloc.Exit c ->
-      lwt () = Platform_js.eprint ("Exit "^(string_of_int c)^"\n") in
+      (*lwt () = Platform_js.eprint ("Exit "^(string_of_int c)^"\n") in*)
       Lwt.return (Js.Unsafe.fun_call errback [||])
     | Gloc_lib.CompilerError(_,el) -> (* TODO: FIXME *)
       lwt () = Platform_js.eprint "CompilerError:\n" in
