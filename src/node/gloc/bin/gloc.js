@@ -57,4 +57,4 @@ global.gloc_fs_write = function (path, content, cb) {
 require('../lib/gloc_js.js');
 
 // The first two arguments are the path to node and your script respectively:
-ocaml.gloc(process.argv.slice(2));
+ocaml.gloc(process.argv.slice(2),function () {}, function () {});

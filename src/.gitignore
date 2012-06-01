@@ -1,3 +1,4 @@
 *~
 *.annot
 _build/
+gloc_js.js
