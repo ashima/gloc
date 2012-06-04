@@ -35,21 +35,26 @@ let gloc args callback errback =
   let args = Array.of_list ("gloc"::(Array.to_list args)) in
   let exec_state = Gloc_lib.new_exec_state None in
   let (specs, anon) = arg_of_cli exec_state Gloc.cli in
-  let () = Arg.parse_argv ~current:(ref 0) args specs anon Gloc.usage_msg in
-  try_lwt
-    lwt () = gloc exec_state in
-    Lwt.return (Js.Unsafe.fun_call callback [||])
-  with
-    | Gloc.Exit c ->
-      (*lwt () = Platform_js.eprint ("Exit "^(string_of_int c)^"\n") in*)
-      Lwt.return (Js.Unsafe.fun_call errback [||])
-    | Gloc_lib.CompilerError(_,el) -> (* TODO: FIXME *)
-      lwt () = Platform_js.eprint "CompilerError:\n" in
-      lwt () = Lwt_list.iter_s
+  try
+    Arg.parse_argv ~current:(ref 0) args specs anon Gloc_js.usage_msg;
+    begin try_lwt
+      lwt () = gloc exec_state in
+      Lwt.return (Js.Unsafe.fun_call callback [||])
+    with
+      | Gloc.Exit c ->
+        (*lwt () = Platform_js.eprint ("Exit "^(string_of_int c)^"\n") in*)
+        Lwt.return (Js.Unsafe.fun_call errback [||])
+      | Gloc_lib.CompilerError(_,el) -> (* TODO: FIXME *)
+        lwt () = Platform_js.eprint "CompilerError:\n" in
+        lwt () = Lwt_list.iter_s
           (fun exn -> Platform_js.eprint ((Printexc.to_string exn)^"\n"))
           el in
-      Lwt.return (Js.Unsafe.fun_call errback [||])
-    | e -> lwt () = Platform_js.eprint ((Printexc.to_string e)^"\n") in
+          Lwt.return (Js.Unsafe.fun_call errback [||])
+      | e -> lwt () = Platform_js.eprint ((Printexc.to_string e)^"\n") in
            Lwt.return (Js.Unsafe.fun_call errback [||])
+    end
+  with Arg.Help s ->
+    lwt () = Platform_js.eprint (s^"\n") in
+      Js.Unsafe.fun_call callback [||]
 ;;
 reg "gloc" gloc

@@ -14,7 +14,7 @@ open Glo_lib
 open Gloc_lib
 
 module type Platform = sig
-  val id : [> `POSIX | `JS | `NODE_JS ]
+  val id : [> `POSIX | `JS ]
   val get_year : unit -> int
   val eprint : string -> unit Lwt.t
   val out_of_filename : string -> string -> unit Lwt.t
@@ -23,7 +23,7 @@ end
 
 exception Exit of int
 
-let gloc_version = (1,0,0)
+let gloc_version = (1,1,0)
 let gloc_distributor = "Ashima Arts"
 
 type group = Stage of stage
@@ -92,11 +92,17 @@ let set_of_group state cli =
   function Stage s -> set_stage s
 
 let string_of_version (maj,min,rev) = Printf.sprintf "%d.%d.%d" maj min rev
-let usage_msg = Printf.sprintf "gloc version %s (%s)"
-  (string_of_version gloc_version)
-  gloc_distributor
+
+let string_of_platform_id = function
+  | `POSIX -> "posix"
+  | `JS -> "js"
 
 module Make(P : Platform) = struct
+
+  let usage_msg = Printf.sprintf "gloc(%s) version %s (%s)"
+    (string_of_platform_id P.id)
+    (string_of_version gloc_version)
+    gloc_distributor
 
   let empty_meta =
     { copyright=(P.get_year (),("",""));
