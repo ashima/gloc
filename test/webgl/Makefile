@@ -1,7 +1,9 @@
+GLOC := OCAMLRUNPARAM=b gloc
 DIRS := $(shell ls -l | grep '^d' | awk '{printf "%s.dir\n",$$9 }' )
 
 %.dir :
-	cd $*; $(MAKE)
+	@echo ">>> Running $*"
+	$(MAKE) GLOC="$(GLOC)" -C $*
 
 .PHONY : all test
 all :

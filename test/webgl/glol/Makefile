@@ -1,5 +1,3 @@
-GLOC = OCAMLRUNPARAM=b ../../../src/gloc.byte
-
 ARGSETS := $(wildcard *.argset)
 ARGSYMS := $(ARGSETS:.argset=.argsym)
 
@@ -12,9 +10,13 @@ XMLS  := $(TESTS:.tout=.xml)
 
 .PHONY : all test args clean html
 all :
+ifdef GLOC
 	@$(MAKE) clean
 	@$(MAKE) args
 	@$(MAKE) test
+else
+	@echo "Define GLOC like $$ make GLOC=gloc or use ../../Makefile"
+endif
 
 html : $(XMLS)
 	xsltproc \
@@ -78,7 +80,7 @@ monkey.glo : monkey_a.glsl monkey_b.glsl monkey_c.glsl
 
 args : $(ARGSYMS)
 test : $(OUTS) $(DOUTS) $(ERRS) $(DERRS)
-	@printf "Test failures: "
+	@printf ">>> Test failures: "
 	@ls *.dout *.derr 2> /dev/null | file -f - | grep -v empty | wc -l
 clean :
 	@rm -f *.argsym *.out *.err *.dout *.derr *.glo *.???.xml *.glom.xml *.html
