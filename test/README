@@ -1,0 +1,12 @@
+Run tests with
+
+$ make
+
+or
+
+$ make GLOC=gloc
+
+to specify which gloc command to use.
+
+The top-level suite and each target suite uses a default gloc command,
+gloc, whereas each individual feature suite requires a GLOC parameter.
