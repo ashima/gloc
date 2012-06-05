@@ -14,7 +14,7 @@
     "Tikhon Jelvis <tikhon@berkeley.edu>"
   ],
   "description" : "glsl object compiler",
-  "bin" : {"gloc.js": "./bin/gloc.js"},
+  "bin" : "./bin/gloc.js",
   "scripts" : {
     "start" : "node bin/gloc.js"
   },
