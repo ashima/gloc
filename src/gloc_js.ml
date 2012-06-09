@@ -2,7 +2,16 @@ open Js
 
 external reg : string -> ('a -> 'b) -> unit = "register_ocaml_fn"
 
-module Gloc_js = Gloc.Make(Platform_js)
+module Gloc_js = Gloc.Make(struct
+  include Platform_js
+  let glo_of_source =
+    let open Gloc_lib in
+        Some (fun path src ->
+          compile {(new_exec_state None) with
+            stage = ref Compile;
+            base = ref path
+          } path src)
+end)
 open Gloc_js
 
 let gloc args callback errback =

@@ -5,7 +5,10 @@ open Glo_lib
 
 external reg : string -> ('a -> 'b) -> unit = "register_ocaml_fn"
 
-module Linker = Glol.Make(World.Make(Platform_js))
+module Linker = Glol.Make(World.Make(struct
+  include Platform_js
+  let glo_of_source = None
+end))
 
 let string_of_js_exc e = string (Glol.string_of_error begin
   match to_string (e##name) with
