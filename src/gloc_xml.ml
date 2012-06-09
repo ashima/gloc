@@ -35,11 +35,11 @@ let format_cli cli =
     ((format_groups grps)
      @(List.map (fun (flag,iface,descr) -> format_iface flag descr iface) cli))
 
-let xml_of_cli ?xsl ?(pretty=false) cli =
+let xml_of_cli ?(pretty=false) cli =
   let ez = format_cli cli in
-  (header xsl)^"\n"^(if pretty
+  (header None)^"\n"^(if pretty
     then (Pretty.to_string ez)^"\n"
     else Compact.to_string ez)
 ;;
 
-print_endline (xml_of_cli ~xsl:"glocode.xsl" ~pretty:true Gloc.cli)
+print_endline (xml_of_cli ~pretty:true Gloc.cli)

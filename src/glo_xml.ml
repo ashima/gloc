@@ -96,8 +96,8 @@ let header xslopt =
   ^(match xslopt with None -> ""
     | Some href -> "<?xml-stylesheet type=\"text/xsl\" href=\""^href^"\"?>\n")
 
-let xml_of_glom ?xsl ?(pretty=false) glom =
+let xml_of_glom ?(pretty=false) glom =
   let ez = format_glom None glom in
-  (header xsl)^"\n"^(if pretty
+  (header None)^"\n"^(if pretty
     then (Pretty.to_string ez)^"\n"
     else Compact.to_string ez)
