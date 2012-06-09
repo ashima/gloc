@@ -64,12 +64,12 @@ let rec process_requires e = match e with
 
 let line_ref_re = Re_str.regexp "\\([^ ]*\\)#n=\\([^ ]+\\)"
 
-let extract_name_frag fn = function
-  | [] -> Num fn
+let extract_name_frag filenum = function
+  | [] -> Num filenum
   | h::_ -> begin
     try ignore (Re_str.search_forward line_ref_re h 0);
-        Ref (fn, Re_str.matched_group 1 h, Re_str.matched_group 2 h)
-    with Not_found -> Num fn
+        Ref (filenum, Re_str.matched_group 1 h, Re_str.matched_group 2 h)
+    with Not_found -> Num filenum
   end
 
 let rec process_line e = match e with
@@ -177,7 +177,8 @@ let create_unit expr ppl =
     inmac; opmac; outmac=[]; bmac=[];
     source=(snd ((proj_pptok_expr expr).scan start))},
    List.rev
-     (unique (function Num fn | Ref (fn,_,_) -> string_of_int fn) file_nums))
+     (unique (function
+       | Num filenum | Ref (filenum,_,_) -> string_of_int filenum) file_nums))
 
 let empty_ppenv lang =
   {macros=Env.empty;
@@ -187,9 +188,9 @@ let empty_ppenv lang =
 
 let link_of_filenum = function
   | Num n -> (string_of_int n, sprintf "#n=%d" n)
-  | Ref (n, fn, frag) -> (string_of_int n, sprintf "#n=%s" frag)
+  | Ref (n, filenum, frag) -> (string_of_int n, sprintf "#n=%s" frag)
 
-let compile ?meta lang fn origexpr ppl =
+let compile ?meta lang path origexpr ppl =
   let target = Language.target_of_language lang in
   let body_unit, file_nums = create_unit origexpr ppl in
   let linkmap = List.map link_of_filenum file_nums in
@@ -262,7 +263,7 @@ let unit_of_binding lang (n, bs) =
             ) bindings in
 *)
 
-let dissolve ?meta lang fn origexpr ppl =
+let dissolve ?meta lang path origexpr ppl =
   let target = Language.target_of_language lang in
   let pglo = {glo=glo_version; target; meta; units=[||]; linkmap=[]} in
   let append_unit file_nums requires oglo u =
@@ -353,7 +354,7 @@ let dissolve ?meta lang fn origexpr ppl =
       | NoMeta -> loop env (dfn,oglo) glom
       | EndMeta -> loop env (dfn,pglo) glom
       | NewMeta meta -> loop env (dfn,{pglo with meta=Some meta}) glom
-  in let glo_alist = loop (empty_ppenv lang) (fn,pglo) [] [] [origexpr] in
+  in let glo_alist = loop (empty_ppenv lang) (path,pglo) [] [] [origexpr] in
      if 1=(List.length glo_alist) then snd (List.hd glo_alist)
      else Glom glo_alist
 
