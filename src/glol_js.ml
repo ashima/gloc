@@ -5,31 +5,26 @@ open Glo_lib
 
 external reg : string -> ('a -> 'b) -> unit = "register_ocaml_fn"
 
-let addr_of_js j = match (Optdef.to_option (array_get j 0),
-                          Optdef.to_option (array_get j 1)) with
-  | (Some s, Some i) -> (to_string s,
-                         int_of_float (float_of_number (Unsafe.coerce i)))
-  | _ -> raise (Failure "not enough fields in addr")
-in
+module Linker = Glol.Make(World.Make(Platform_js))
 
 let string_of_js_exc e = string (Glol.string_of_error begin
   match to_string (e##name) with
     | "MissingMacro" ->
-      Glol.MissingMacro (addr_of_js e##addr, to_string e##macro)
+      Glol.MissingMacro (to_string e##addr, to_string e##macro)
     | "MissingSymbol" ->
-      Glol.MissingSymbol (addr_of_js e##addr, to_string e##symbol)
+      Glol.MissingSymbol (to_string e##addr, to_string e##symbol)
     | "NotFound" ->
       Failure ("NotFound: "^(to_string e##key))
     | "CircularDependency" ->
       let addrs = Array.to_list (to_array e##addrs) in
-      Glol.CircularDependency (List.map addr_of_js addrs)
+      Glol.CircularDependency (List.map to_string addrs)
     | "SymbolConflict" ->
       Glol.SymbolConflict (to_string (e##sym_a_),
                            to_string (e##sym_b_),
-                           addr_of_js (e##addr_a_),
-                           addr_of_js (e##addr_b_))
+                           to_string (e##addr_a_),
+                           to_string (e##addr_b_))
     | "UnknownBehavior" ->
-      Glol.UnknownBehavior (addr_of_js e##addr, to_string e##behavior)
+      Glol.UnknownBehavior (to_string e##addr, to_string e##behavior)
     | "UnknownGloVersion" ->
       let v = to_array e##version in
       Glol.UnknownGloVersion (to_string e##path, (v.(0),v.(1),v.(2)))
@@ -37,12 +32,18 @@ let string_of_js_exc e = string (Glol.string_of_error begin
 end)
 in
 
-let link prologue syms glom_s =
+let link prologue syms glom_s callback errback =
   let gloms = to_string glom_s in
   let glom = glom_of_string gloms in
-  string (Glol.link (to_string prologue)
-            (List.map to_string (Array.to_list (to_array syms)))
-            (Glol.flatten "" glom))
+  try_lwt lwt seq = Linker.satisfy
+      (List.map to_string (Array.to_list (to_array syms)))
+      (Linker.stream_of_glom ~src:"[glol.js]" glom)
+    in Lwt.return
+    (Js.Unsafe.fun_call callback
+       [|Js.Unsafe.inject (string (Linker.link (to_string prologue) seq))|])
+  with e -> Lwt.return
+    (Js.Unsafe.fun_call errback
+       [|Js.Unsafe.inject (string (Glol.string_of_error e))|])
 in
 reg "link" link;
 reg "string_of_error" (fun e -> string (Glol.string_of_error e));

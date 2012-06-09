@@ -5,7 +5,7 @@
  *
  * @constructor
  */
-window['GLOL'] = function() {};
+window['Glol'] = function() {};
 
 (function() {
   // Let's link some glo!
@@ -382,7 +382,7 @@ window['GLOL'] = function() {};
   // Produce a string representing a valid SL program given a list of required
   // symbols and a search list.
   /** @type {function(string,Array.<string>,*) : string } */
-  window['GLOL'].prototype.link = function(prologue,reqsym,glom) {
+  window['Glol'].prototype.link = function(prologue,reqsym,glom) {
     var reqsym_ = (reqsym.length==0) ? ["main"] : reqsym.reverse();
     var glo_alist = add_zeros(filter(flatten("",glom)));
     var glol = (sort(reqsym_,glo_alist)).map(function (addr) {

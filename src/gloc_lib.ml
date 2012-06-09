@@ -23,7 +23,8 @@ module List = struct
 end
 
 (* TODO: harmonize? *)
-type stage = Contents | ParsePP | Preprocess | Compile | Link | XML
+type stage = Glolli | Contents | ParsePP | Preprocess | Compile | Link
+type format = XML | JSON
 type component =
   | Command
   | Format
@@ -34,6 +35,7 @@ type component =
   | SLParser
   | Analyzer
   | Linker
+  | WriteOut
 
 let exit_code_of_component = function
   | Command -> 1
@@ -45,6 +47,7 @@ let exit_code_of_component = function
   | SLParser -> 7
   | Analyzer -> 8
   | Linker -> 9
+  | WriteOut -> 10
 
 let string_of_component_error = function
   | Command -> "unrecoverable command error"
@@ -56,6 +59,7 @@ let string_of_component_error = function
   | SLParser -> "unrecoverable parse error"
   | Analyzer -> "unrecoverable analysis error"
   | Linker -> "unrecoverable link error"
+  | WriteOut -> "unrecoverable output error"
 
 exception UnrecognizedJsonFormat
 exception UncaughtException of exn
@@ -64,17 +68,25 @@ exception MultiUnitGloPPOnly of string (* TODO: error message, test *)
 exception GlomPPOnly of string
 exception IncompatibleArguments of string * string
 exception GloppStageError of stage
+exception InvalidDefine (* TODO: error message *)
+exception InvalidRenameString of string (* TODO: error message, test *)
+exception MetaPrototypeFailure of string
+exception OutputFailure of string * string
 
 exception CompilerError of component * exn list
 
-type 'a input = Stream of 'a | Define of 'a
+type 'a input = Stream of 'a | Def of 'a
 
 type 'a state = {stage:stage ref;
+                 format:format ref;
                  verbose:bool ref;
                  dissolve:bool ref;
                  linectrl:bool ref;
                  metadata:'a option ref;
+                 renames:string list ref;
+                 exports:string list ref;
                  symbols:string list ref;
+                 base:string ref;
                  output:string ref;
                  inputs:string input list ref;
                  prologue:string list ref;
@@ -89,11 +101,15 @@ let default_lang = { Lang.dialect=Lang.WebGL;
 
 let new_exec_state meta = {
   stage=ref Link;
+  format=ref JSON;
   verbose=ref false;
   dissolve=ref false;
   linectrl=ref true;
   metadata=ref meta;
+  renames=ref [];
+  exports=ref [];
   symbols=ref [];
+  base=ref "";
   output=ref "-";
   inputs=ref [];
   prologue=ref [];
@@ -136,7 +152,7 @@ let preprocess lang ppexpr =
   maybe_fatal_error PPError;
   ppl
 
-let compile exec_state fn source =
+let compile exec_state path source =
   let ppexpr = parse !(exec_state.inlang) source in
   let ppl = preprocess !(exec_state.inlang) ppexpr in
 
@@ -149,56 +165,28 @@ let compile exec_state fn source =
   let meta = !(exec_state.metadata) in
   try (if !(exec_state.dissolve)
     then Glo.dissolve else Glo.compile)
-        ?meta !(exec_state.inlang) fn ppexpr ppl
+        ?meta !(exec_state.inlang) path ppexpr ppl
   with (CompilerError _) as e -> raise e
     | err -> raise (CompilerError (SLParser, [err]))
 
-let link prologue required glom =
-  try Glol.link prologue required (Glol.flatten "" glom)
-  with e -> raise (CompilerError (Linker,[e]))
-
-let macro_name m = (* TODO: parser? *)
-  let fn_patt = Re_str.regexp "\\([^(]+\\)\\(([^)]+)\\)?" in
-  let _ = Re_str.search_forward fn_patt m 0 in
-  Re_str.matched_group 1 m
+let split_define_string ds =
+  match Re_str.bounded_split (Re_str.regexp_string "=") ds 2 with
+    | [] -> raise InvalidDefine
+    | bare::[] -> (bare, None)
+    | m::d::_ -> (m, Some d)
 
 let make_define_line ds =
-  match Re_str.bounded_split (Re_str.regexp_string "=") ds 2 with
-    | [] -> ""
-    | bare::[] -> "#define "^bare^"\n"
-    | m::d::_ -> "#define "^m^" "^d^"\n"
-
-let make_define_unit ds =
-  let u m source =
-    {pdir=[]; edir=[]; vdir=None;
-     inu=[]; outu=[]; ina=[]; outa=[]; vary=[]; insym=[]; outsym=[];
-     inmac=[]; opmac=[]; bmac=[];
-     outmac=if m="" then [] else [macro_name m]; source}
-  in match Re_str.bounded_split (Re_str.regexp_string "=") ds 2 with
-    | [] -> u "" (make_define_line ds)
-    | bare::[] -> u bare (make_define_line ds)
-    | m::d::_ -> u m (make_define_line ds)
+  match split_define_string ds with
+    | bare, None -> "#define "^bare^"\n"
+    | m, Some d -> "#define "^m^" "^d^"\n"
 
 let glo_of_u meta target u =
   {glo=glo_version; target; meta; units=[|u|]; linkmap=[]}
 
-let make_glo exec_state fn s =
+let make_glo exec_state path s =
   match glom_of_string s with
-    | Source s -> compile exec_state fn s
+    | Source s -> compile exec_state path s
     | glom -> glom
-
-let make_glom exec_state inputs =
-  let glo_alist = List.fold_left
-    (fun al -> function
-      | (fn, Stream (Source s)) | (fn, Define (Source s)) ->
-        (fn,make_glo exec_state fn s)::al
-      | (fn, Stream glom) | (fn, Define glom) -> (fn,glom)::al
-    ) [] inputs
-  in if 1=(List.length glo_alist)
-    then match snd (List.hd glo_alist) with
-      | Glom glom -> Glol.nest glom
-      | x -> Glol.nest [fst (List.hd glo_alist),x]
-    else Glol.nest glo_alist
 
 let minimize_glom = function
   | Glom [_,Leaf glo] -> Leaf glo
@@ -274,10 +262,10 @@ let string_of_error linectrl = function
   | AmbiguousPreprocessorConditional t ->
     sprintf "%s:\nambiguous preprocessor conditional branch: %s\n"
       (string_of_span linectrl t.span) t.v
-  | GlomPPOnly fn ->
-    sprintf "Source '%s' is a glom with multiple source units.\n" fn
-  | MultiUnitGloPPOnly fn -> (* TODO: test *)
-    sprintf "Source '%s' is a glo with multiple source units.\n" fn
+  | GlomPPOnly path ->
+    sprintf "Source '%s' is a glom with multiple source units.\n" path
+  | MultiUnitGloPPOnly path -> (* TODO: test *)
+    sprintf "Source '%s' is a glo with multiple source units.\n" path
   | Essl_lib.EsslParseError (name,span) ->
     sprintf "%s:\nESSL parse error: %s\n" (string_of_span linectrl span) name
   | Sys_error m -> sprintf "System error:\n%s\n" m

@@ -2,31 +2,6 @@ open Js
 
 external reg : string -> ('a -> 'b) -> unit = "register_ocaml_fn"
 
-external stdout : js_string t -> (unit -> unit) -> unit = "gloc_stdout"
-external stderr : js_string t -> (unit -> unit) -> unit = "gloc_stderr"
-external fs_write : js_string t -> js_string t -> (unit -> unit) -> unit = "gloc_fs_write"
-
-external stdin  : (js_string t -> unit) -> unit = "gloc_stdin"
-external fs_read : js_string t -> (js_string t -> unit) -> unit = "gloc_fs_read"
-
-
-module Platform_js = struct
-  let id = `JS
-  let get_year () = (jsnew date_now ())##getFullYear ()
-  let eprint s = Lwt.return (stderr (string s) (fun () -> ()))
-  let out_of_filename path s =
-    let res, w = Lwt.wait () in
-    (if path="-" then stdout else fs_write (string path))
-      (string s)
-      (Lwt.wakeup w);
-    res
-  let in_of_filename path =
-    let res, w = Lwt.wait () in
-    (if path="-" then stdin else fs_read (string path))
-      (fun s -> Lwt.wakeup w (to_string s));
-    res
-end
-
 module Gloc_js = Gloc.Make(Platform_js)
 open Gloc_js
 

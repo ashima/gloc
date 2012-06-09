@@ -7,18 +7,18 @@
 include Glol_t
 
 let rec normalize_li = function
-  (* href's varargs of refs are concatenated *)
-  | `List ((`String "href")::rest) ->
-    if (List.length rest)=1 then `List ((`String "href")::rest)
+  (* a's varargs of refs are concatenated *)
+  | `List ((`String "a")::rest) ->
+    if (List.length rest)=1 then `List ((`String "a")::rest)
     else let hrefs = List.map
-           (fun href -> `List [`String "href"; href]) rest in
+           (fun href -> `List [`String "a"; href]) rest in
          `List ((`String "concat")::hrefs)
 
   (* define's optional value is totally optional *)
   | `List [`String "define"; m] ->
-    `List [`String "define"; m; `String "None"]
+    `List [`String "define"; `List [m; `String "None"]]
   | `List [`String "define"; m; v] ->
-    `List [`String "define"; m; `List [`String "Some"; v]]
+    `List [`String "define"; `List [m; `List [`String "Some"; v]]]
 
   (* concat concatenates its varargs *)
   | `List ((`String "concat")::rest) ->
@@ -28,9 +28,10 @@ let rec normalize_li = function
   | `List (((`String "rename") as f)::arg::rest)
   | `List (((`String "export") as f)::arg::rest) ->
     if (List.length rest)=1
-    then `List (f::arg::[normalize_li (List.hd rest)])
-    else `List [f; arg;
-                `List [`String "concat"; `List (List.map normalize_li rest)]]
+    then `List [f; `List [arg; normalize_li (List.hd rest)]]
+    else `List [f; `List [arg;
+                          `List [`String "concat";
+                                 `List (List.map normalize_li rest)]]]
 
   | j -> j
 
@@ -38,21 +39,25 @@ let rec denormalize_li = function
   (* Collapse homogeneous concats of hrefs *)
   | `List [`String "concat"; `List rest] ->
     if List.for_all
-      (function `List [`String "href"; _] -> true | _ -> false) rest
+      (function `List [`String "a"; _] -> true | _ -> false) rest
     then let hrefs = List.fold_right (function
-      | `List [`String "href"; href] -> (fun l -> href::l)
+      | `List [`String "a"; href] -> (fun l -> href::l)
       | _ -> (fun l -> l)) rest [] in
-         `List ((`String "href")::hrefs)
-    else `List [`String "concat"; `List (List.map denormalize_li rest)]
+         `List ((`String "a")::hrefs)
+    else `List ((`String "concat")::(List.map denormalize_li rest))
 
   (* Remove 'a option constructors *)
-  | `List [`String "define"; m; `String "None"] -> `List [`String "define"; m]
-  | `List [`String "define"; m; `List [`String "Some"; v]] ->
+  | `List [`String "define";
+           `List [m; `String "None"]] -> `List [`String "define"; m]
+  | `List [`String "define";
+           `List [m; `List [`String "Some"; v]]] ->
     `List [`String "define"; m; v]
 
-  (* Concat under rename evaporates *)
-  | `List [(`String "rename") as f; map; `List ((`String "concat")::rest)]
-  | `List [(`String "export") as f; map; `List ((`String "concat")::rest)] ->
+  (* Concat under rename|export evaporates *)
+  | `List [(`String "rename") as f;
+           `List [map; `List [`String "concat"; `List rest]]]
+  | `List [(`String "export") as f;
+           `List [map; `List [`String "concat"; `List rest]]] ->
     `List (f::map::(List.map denormalize_li rest))
 
   | j -> j

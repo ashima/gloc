@@ -8,15 +8,19 @@ exception BlockedMacro of string * string
 val string_of_error : exn -> string
 
 module type World = sig
+  type url
   type resource = Glom of string Glo_lib.glo Glo_lib.glom | Glol of Glol_t.glol
 
-  exception GetError of (string * string)
+  exception GetError of string * string
+  exception ParseError of string * string
 
-  val get : string -> (string * string) Lwt.t
+  val url : string -> url
+  val string : url -> string
 
-  val resolve_ref : string -> string -> string
-  val is_absolute_url : string -> bool
-  val parse : string -> resource
+  val get : url -> (string * resource) Lwt.t
+
+  val resolve_ref : url -> url -> url
+  val is_absolute_url : url -> bool
 end
 
 module Make : functor(W : World) -> sig
@@ -33,7 +37,7 @@ module Make : functor(W : World) -> sig
   val stream_of_glol : ?src:string -> Glol_t.glol -> stream
   val stream_of_glom : ?src:string -> string Glo_lib.glo Glo_lib.glom -> stream
 
-  val href : ?src:string -> string -> stream
+  val a : ?src:string -> string -> stream
   val define : ?src:string -> string -> string option -> stream
   val concat : ?src:string -> stream -> stream -> stream
   val rename : ?src:string -> (string * string) list -> stream -> stream

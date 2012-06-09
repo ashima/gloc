@@ -24,7 +24,7 @@ exception UnserializableGlom of string
 exception InvalidGlom of string
 exception InvalidGlo of string
 
-let glo_version = (1,0,0)
+let glo_version = (1,1,0)
 
 let glo_of_string s =
   Glo_j.glo_of_string

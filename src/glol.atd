@@ -3,7 +3,7 @@ type glol = {
   ?base:string option;
   ?transmit:xmitmeta option;
   ?li:li option;
-  cache: (string * glol) list <json repr="object">;
+  ~cache: (string * glol) list <json repr="object">;
   ?glom:glom option;
 }
 
@@ -14,11 +14,11 @@ type xmitmeta = {
 }
 
 type li = [
-| Href of string <json name="href">
-| Define of (string * string option) <json name="define">
-| Concat of li list <json name="concat">
-| Rename of ((string * string) list * li) <json name="rename">
-| Export of (string list * li) <json name="export">
+| A <json name="a"> of string
+| Define <json name="define"> of (string * string option)
+| Concat <json name="concat"> of li list
+| Rename <json name="rename"> of ((string * string) list * li)
+| Export <json name="export"> of (string list * li)
 ]
 
 type version <ocaml from="Glo"> = abstract
