@@ -2,7 +2,7 @@
 
 ROOT:=../..
 SRC:=$(ROOT)/src
-GLOC:=gloc.d.byte
+GLOC:=gloc.byte
 GLOC_PATH:=$(SRC)/$(GLOC)
 
 TUTXMLS:=$(wildcard ?*.tut.xml)
