@@ -1,0 +1,223 @@
+<tutorial>
+  <head>
+    <title>Dynamic Blending</title>
+    <author href="mailto:sheets@ashimaarts.com">David Sheets</author>
+    <history>
+      <revision date="2012/05/25">
+        <change>Created.</change>        
+      </revision>
+    </history>
+    <summary>
+      In this tutorial, we build a WebGL visualization that
+      dynamically blends fragment shader functions together.
+    </summary>    
+  </head>
+  <body>
+    <p>
+      We will
+      use <a href="http://ashimaarts.com/gloc/glocode/">glocode</a> to
+      produce 5 <em>glo</em> objects:
+    </p>
+    <gltoc type="ol" />
+
+      <section id="vert">
+        <h2>Planar Pass-Through Vertex Shader</h2>
+  <p>
+    Our pass-through vertex shader simply bundles the 2D position into
+    a 4D <a href="http://en.wikipedia.org/wiki/Homogeneous_coordinates">homogeneous</a> vector:</p><gloss>attribute vec4 a_position;
+attribute vec2 a_texCoord;
+uniform mat4 u_projectionMatrix;
+
+varying vec2 v_texCoord;
+
+void main() {
+  v_texCoord = a_texCoord;
+  gl_Position = u_projectionMatrix * a_position;
+}</gloss>
+      </section>
+
+      <section id="blend">
+        <h2>Generic Blending Fragment Shader</h2>
+
+  <p>
+    Our generic blending fragment shader declares some pipeline variables and constants but leaves two symbols, <em>blend_a</em> and <em>blend_b</em>, <a href="http://en.wikipedia.org/wiki/Free_variable">free</a>:</p>
+    <gloss>uniform float transition;
+varying vec2 v_texCoord;
+const float pi = 3.1415926535897932384626433832795029;
+void main() {
+  gl_FragColor = mix(blend_a(v_texCoord),blend_b(v_texCoord),transition);
+}</gloss>
+      </section>
+
+      <section id="sin">
+        <h2>Sinusoidal Image Function</h2>
+
+  <p>
+    We will need to define some functions to blend together. First, we write a sinusoidal texturing function:</p>
+    <gloss>vec4 txsin(vec2 plane) {
+  float x = plane.x;
+  return vec4(sin(x),
+              sin(x + pi/3.),
+              sin(x + 2.*pi/3.),
+              1.);
+}</gloss>
+      </section>
+
+      <section id="circ">
+        <h2>Circular Image Function</h2>
+  <p>
+    Then, we construct a circular texturing function:</p>
+    <gloss>vec4 txcirc(vec2 plane) {
+  float r = sqrt(plane.x * plane.x + plane.y * plane.y);
+  return vec4(r,r,r,1.);
+}</gloss>
+
+      </section>
+
+      <section id="checker">
+        <h2>Checkerboard Image Function</h2>
+
+ <p>
+    Finally, we produce a checkerboard texturing function:</p>
+    <gloss>vec4 txchecker(vec2 plane) {
+  return vec4(mod(plane.x,0.1) &lt; 0.05 ? 1. : 0.,
+              mod(plane.y,0.1) &lt; 0.05 ? 1. : 0.,
+              mod(plane.x,0.1) &gt; 0.05 ? 0. : 1.,
+              1.
+             );
+}</gloss>
+      </section>
+
+  <p>
+    To get <em>glo</em> JavaScript objects, you can use the <a href="http://ashimaarts.com/gloc/glocode/">glocode</a> in-browser compiler or a native installation of <em>gloc</em> from <a href="http://github.com/ashima/gloc">source</a>. In this tutorial, we have embedded the <em>glo</em> files in <code>&lt;script&gt;</code> tags in the head of the page. We need a function to retrieve and parse our <em>glo</em> JSON strings:</p>
+    <js id="glo_of_el">function glo_of_el(id) {
+  return JSON.parse(document.getElementById(id+".glo").innerText.trim());
+}</js>
+
+  <p>
+    Now that we have our shader resources, we will
+    use <a href="http://ashimaarts.com/gloc/1.0/glol.js">glol.js</a> to
+    link them into 3 complete shaders. <em>glol.js</em> exports a
+    constructor called "GLOL" to make our linker object. The object
+    resulting from the constructor has a single method, link, which
+    takes:
+  </p>
+  <ul>
+    <li><em>prologue</em>, a shader header inserted after mandatory
+    top directives (like #version). This is useful for declaring the
+    default precision of your shaders.</li>
+    <li><em>required symbols</em>, a list of symbol names that need
+    to appear in the result shader. An empty list defaults to
+    ['main'].</li>
+    <li><em>glom</em>, a list of pairs (2-element lists) of
+    descriptive name strings and <em>glo</em> objects or another <em>glom</em></li>
+  </ul>
+
+  <p>Our vertex shader link call looks like:</p>
+    <js id="vert-link">var precdecl = "#ifdef GL_ES\nprecision mediump float;\n#endif\n";
+var glol = new GLOL();
+var vs_glo = glo_of_el("vert");
+var vs = glol.link(precdecl,[],[["vert",vs_glo]]);</js>
+  <p>
+    For our fragment shaders, we write a JavaScript function to bind
+    each texturing function to <em>blend_a</em> or <em>blend_b</em> in
+    our generic fragment shader.</p>
+    <js id="make_blend_glo">function make_blend_glo(a,b) {
+  return ["make_blend_glo("+a+","+b+")",
+          {"glo": [1,0,0],
+           "target": ["webgl",[1,0,0]],
+           "units":[
+             {"insym": [a],
+              "outmac": ["blend_a"],
+              "source":"#define blend_a "+a},
+             {"insym": [b],
+              "outmac": ["blend_b"],
+              "source":"#define blend_b "+b}
+            ]
+           }
+          ];
+}</js>
+
+<p>We then generate each separate fragment shader we will use, build
+    our WebGL program objects, and render.</p>
+    <js id="blends">function blend(id_a, fn_a, id_b, fn_b) {
+  return glol.link(precdecl,[],
+                   [make_blend_glo(fn_a,fn_b),
+                    [id_a, glo_of_el(id_a)],
+                    [id_b, glo_of_el(id_b)],
+                    ["blend",glo_of_el("blend")]]);
+}
+
+window.onload = function() {
+  var awe = ashimaWebGLEngine0;
+  var canvas = document.getElementById("canvas");
+  var gl = awe.getGlContext(canvas,{"warningsAsErrors":true});
+
+  if (!gl) error("No webgl here");
+
+  try {
+  var fs_sin_circ = blend("sin","txsin","circ","txcirc");
+  var fs_circ_checker = blend("circ","txcirc","checker","txchecker");
+  var fs_checker_sin = blend("checker","txchecker","sin","txsin");
+  } catch (e) { if (e.name=="MissingSymbol") { error(e.name+" "+e.addr+" "+e.symbol); throw e; } }
+
+  try {
+  var scp = awe.compileAndLink(vs,fs_sin_circ);
+  } catch (e) { error("sin_circ "+e); throw e; }
+  try {
+  var ccp = awe.compileAndLink(vs,fs_circ_checker);
+  } catch (e) { error("circ_checker "+e); throw e; }
+  try {
+  var csp = awe.compileAndLink(vs,fs_checker_sin);
+  } catch (e) { error("checker_sin "+e); throw e; }
+
+  var pMatrix = new Float32Array(makePerspective(120,1,0.1,10));
+  var a_tex = awe.makeBuffer(gl.ARRAY_BUFFER,
+                             gl.FLOAT,2,gl.STATIC_DRAW,
+                             [1.,1.,1.,-1.,-1.,1.,-1.,-1.]);
+  var a_pos = awe.makeBuffer(gl.ARRAY_BUFFER,
+                             gl.FLOAT,4,gl.STATIC_DRAW,
+                             [1.,1.,0.,1.,
+                              1.,-1.,0.,1.,
+                              -1.,1.,0.,1.,
+                              -1.,-1.,0.,1.]);
+  var tris = awe.makeBuffer(gl.ARRAY_BUFFER,
+                            gl.UNSIGNED_SHORT,3,gl.STATIC_DRAW,
+                            [1.,1.,0.,
+                             1.,-1.,0.,
+                             -1.,1.,0.,
+                             -1.,-1.,0.]);
+
+  gl.clearColor(1.0,0.8,1.0,1.0);
+  gl.enable(gl.DEPTH_TEST);
+  gl.viewport(0,0,canvas.width,canvas.height);
+
+  awe.animationStart(function() {
+    scp.aweUse();
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    a_tex.aweSetVertexAttPtr(scp.aweSym['a_texCoord']);
+    a_pos.aweSetVertexAttPtr(scp.aweSym['a_position']);
+    gl.uniformMatrix4fv(scp.aweSym['u_projectionMatrix'],false,pMatrix);
+    gl.uniform1f(scp.aweSym['transition'],0.5);
+
+    tris.drawArrays(gl.TRIANGLES, 0, 4);
+  },canvas,1000/60,false);
+}</js>
+
+  <p>
+    And our final result:
+  </p>
+  <canvas id="canvas" />
+
+  <p>
+    As you may have noticed in this tutorial, <em>glol</em>'s function
+    is quite simple and using it for dynamic shader effects requires an
+    understanding of the <a href="http://ashimaarts.com/gloc/">glo</a>
+    format. <a href="http://ashimaarts.com/">Stay tuned</a> for the
+    imminent release of <em>glolli</em>, a declarative format that makes
+    orchestrating shader modules easier through the use of module-level
+    function expressions.
+  </p>
+</body>
+</tutorial>
