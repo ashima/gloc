@@ -171,7 +171,10 @@ window.onload = function() {
   var csp = awe.compileAndLink(vs,fs_checker_sin);
   } catch (e) { error("checker_sin "+e); throw e; }
 
-  var pMatrix = new Float32Array(makePerspective(120,1,0.1,10));
+  var pMatrix = new Float32Array([1.,0.,0.,0.,
+                                  0.,1.,0.,0.,
+                                  0.,0.,0.,0.,
+                                  0.,0.,0.,1.]);//makePerspective(120,1,0.1,10));
   var a_tex = awe.makeBuffer(gl.ARRAY_BUFFER,
                              gl.FLOAT,2,gl.STATIC_DRAW,
                              [1.,1.,1.,-1.,-1.,1.,-1.,-1.]);
@@ -181,14 +184,11 @@ window.onload = function() {
                               1.,-1.,0.,1.,
                               -1.,1.,0.,1.,
                               -1.,-1.,0.,1.]);
-  var tris = awe.makeBuffer(gl.ARRAY_BUFFER,
+  var tris = awe.makeBuffer(gl.ELEMENT_ARRAY_BUFFER,
                             gl.UNSIGNED_SHORT,3,gl.STATIC_DRAW,
-                            [1.,1.,0.,
-                             1.,-1.,0.,
-                             -1.,1.,0.,
-                             -1.,-1.,0.]);
+                            [2,1,0,3,2,1]);
 
-  gl.clearColor(1.0,0.8,1.0,1.0);
+  gl.clearColor(1.0,1.0,1.0,1.0);
   gl.enable(gl.DEPTH_TEST);
   gl.viewport(0,0,canvas.width,canvas.height);
 
@@ -201,7 +201,7 @@ window.onload = function() {
     gl.uniformMatrix4fv(scp.aweSym['u_projectionMatrix'],false,pMatrix);
     gl.uniform1f(scp.aweSym['transition'],0.5);
 
-    tris.drawArrays(gl.TRIANGLES, 0, 4);
+    tris.drawElements(gl.TRIANGLES);
   },canvas,1000/60,false);
 }</js>
 
