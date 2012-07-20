@@ -1,6 +1,11 @@
 .PHONY: all glocode clean node node-install
 
+TYPEREX=1
+ifdef TYPEREX
+OCAMLBUILD:=ocamlbuild -use-ocamlfind -ocamlc ocp-ocamlc -ocamlopt ocp-ocamlopt -cflag -annot
+else
 OCAMLBUILD:=ocamlbuild -use-ocamlfind -cflag -annot
+endif
 DOC:=../doc
 GLOC:=./gloc.d.byte
 GLOCODE:=$(DOC)/glocode
