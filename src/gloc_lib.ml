@@ -10,6 +10,7 @@ open Pp_lib
 open Pp
 open Esslpp_lex
 open Glo_lib
+open Options
 
 module List = struct
   include List
@@ -23,8 +24,6 @@ module List = struct
 end
 
 (* TODO: harmonize? *)
-type stage = Glolli | Contents | ParsePP | Preprocess | Compile | Link
-type format = XML | JSON
 type component =
   | Command
   | Format
@@ -75,49 +74,6 @@ exception OutputFailure of string * string
 
 exception CompilerError of component * exn list
 
-type 'a input = Stream of 'a | Def of 'a
-
-type 'a state = {stage:stage ref;
-                 format:format ref;
-                 verbose:bool ref;
-                 dissolve:bool ref;
-                 linectrl:bool ref;
-                 metadata:'a option ref;
-                 renames:string list ref;
-                 exports:string list ref;
-                 symbols:string list ref;
-                 base:string ref;
-                 output:string ref;
-                 inputs:string input list ref;
-                 prologue:string list ref;
-                 inlang:Lang.language ref;
-                 outlang:Lang.language ref;
-                 accuracy:Lang.accuracy ref;
-                }
-
-let default_lang = { Lang.dialect=Lang.WebGL;
-                     Lang.version=(1,0,0);
-                     Lang.bond=Lang.Warn }
-
-let new_exec_state meta = {
-  stage=ref Link;
-  format=ref JSON;
-  verbose=ref false;
-  dissolve=ref false;
-  linectrl=ref true;
-  metadata=ref meta;
-  renames=ref [];
-  exports=ref [];
-  symbols=ref [];
-  base=ref "";
-  output=ref "-";
-  inputs=ref [];
-  prologue=ref [];
-  inlang=ref default_lang;
-  outlang=ref default_lang;
-  accuracy=ref Lang.Best;
-} (* one-shot monad *)
-
 let maybe_fatal_error k =
   if (List.length !errors) > 0
   then begin let errs = !errors in
@@ -152,20 +108,20 @@ let preprocess lang ppexpr =
   maybe_fatal_error PPError;
   ppl
 
-let compile exec_state path source =
-  let ppexpr = parse !(exec_state.inlang) source in
-  let ppl = preprocess !(exec_state.inlang) ppexpr in
+let compile options path source =
+  let ppexpr = parse options.inlang source in
+  let ppl = preprocess options.inlang ppexpr in
 
-  let ppexpr = if (!(exec_state.accuracy)=Lang.Preprocess
-                  && !(exec_state.stage)=Compile)
+  let ppexpr = if (options.accuracy=Lang.Preprocess
+                  && options.stage=Compile)
     then check_pp_divergence ppl
     else ppexpr
   in
 
-  let meta = !(exec_state.metadata) in
-  try (if !(exec_state.dissolve)
+  let meta = options.metadata in
+  try (if options.dissolve
     then Glo.dissolve else Glo.compile)
-        ?meta !(exec_state.inlang) path ppexpr ppl
+        ?meta options.inlang path ppexpr ppl
   with (CompilerError _) as e -> raise e
     | err -> raise (CompilerError (SLParser, [err]))
 
@@ -183,9 +139,9 @@ let make_define_line ds =
 let glo_of_u meta target u =
   {glo=glo_version; target; meta; units=[|u|]; linkmap=[]}
 
-let make_glo exec_state path s =
+let make_glo options path s =
   match glom_of_string s with
-    | Source s -> compile exec_state path s
+    | Source s -> compile options path s
     | glom -> glom
 
 let minimize_glom = function

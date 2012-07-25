@@ -1,3 +1,6 @@
+open Cli
+module O = Options
+
 (* session cache *)
 let cache = Hashtbl.create 10
 let redirect_count = 5
@@ -70,9 +73,9 @@ let eprint = Lwt_io.write Lwt_io.stderr
 let glo_of_source =
   let open Gloc_lib in
       Some (fun path src ->
-        compile {(new_exec_state None) with
-          stage = ref Compile;
-          base = ref path
+        compile {(O.default_options None) with
+          O.stage = O.Compile;
+          O.base = path
         } path src)
 
 ;;

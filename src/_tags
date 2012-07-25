@@ -5,10 +5,12 @@
 <pp.*>: package(re.str)
 <esslpp_lex.*>: syntax(camlp4o), package(ulex)
 <gloc.*>: syntax(camlp4o), package(atdgen), package(lwt), package(lwt.syntax), package(uri)
-<gloc_posix.*>: syntax(camlp4o), package(ulex), package(atdgen), package(menhirLib), package(re.str), package(lwt.syntax), package(lwt.unix), package(uri), package(cohttpd)
+<gloc_posix.*>: syntax(camlp4o), package(ulex), package(atdgen), package(menhirLib), package(re.str), package(lwt.syntax), package(lwt.unix), package(uri), package(cohttpd), package(semver)
 <platform_posix.*>: syntax(camlp4o), package(lwt), package(lwt.unix), package(lwt.syntax), package(cohttpd)
 <gloc_js.*>: syntax(camlp4o), package(ulex), package(atdgen), package(menhirLib), package(re.str), package(js_of_ocaml), package(js_of_ocaml.syntax), package(lwt.syntax), package(uri)
 <platform_js.*>: syntax(camlp4o), package(uri), package(js_of_ocaml), package(js_of_ocaml.syntax)
+<options.*>: package(semver)
+<cli.*>: package(semver)
 
 <gloc_xml.*>: package(atdgen), package(ulex), package(menhirLib), package(re.str), package(lwt)
 <gloc_lib.*>: package(atdgen), package(re.str)
