@@ -11,6 +11,8 @@ let usage_msg platform_id = Printf.sprintf "gloc(%s) version %s (%s)"
   (print_version O.gloc_version)
   O.gloc_distributor
 
+type input = Stream of string | Def of string
+
 type 'a state = {
   stage    : O.stage ref;
   format   : O.format ref;
@@ -23,7 +25,7 @@ type 'a state = {
   symbols  : string list ref;
   base     : string ref;
   output   : string ref;
-  inputs   : string O.input list ref;
+  inputs   : input list ref;
   prologue : string list ref;
   inlang   : Language.language ref;
   outlang  : Language.language ref;
@@ -49,6 +51,11 @@ let new_exec_state meta = {
   accuracy = ref Language.Best;
 }
 
+let convert_input = (function
+  | Stream "-"  -> O.STDIN
+  | Stream path -> O.Stream (Uri.of_string path)
+  | Def x       -> O.Def x)
+
 let freeze exec_state = {
   O.stage    = !(exec_state.stage);
   O.format   = !(exec_state.format);
@@ -59,9 +66,11 @@ let freeze exec_state = {
   O.renames  = !(exec_state.renames);
   O.exports  = !(exec_state.exports);
   O.symbols  = !(exec_state.symbols);
-  O.base     = !(exec_state.base);
-  O.output   = !(exec_state.output);
-  O.inputs   = !(exec_state.inputs);
+  O.base     = Uri.of_string !(exec_state.base);
+  O.output   = (match !(exec_state.output) with
+    | "-" -> O.STDOUT
+    | path -> O.Path (Uri.of_string path));
+  O.inputs   = List.map convert_input !(exec_state.inputs);
   O.prologue = !(exec_state.prologue);
   O.inlang   = !(exec_state.inlang);
   O.outlang  = !(exec_state.outlang);
@@ -154,7 +163,7 @@ let spec_of_iface exec_state cli = function
   | List (Set LinkSymbols) ->
     Arg.String (fun u -> exec_state.symbols := u::!(exec_state.symbols))
   | List (Set LinkDefines) ->
-    Arg.String (fun m -> exec_state.inputs := (O.Def m)::!(exec_state.inputs))
+    Arg.String (fun m -> exec_state.inputs := (Def m)::!(exec_state.inputs))
   | List (Set LinkGlobalMacros) ->
     Arg.String (fun m -> exec_state.prologue := m::!(exec_state.prologue))
   | List (Set LinkRenames) ->
@@ -164,7 +173,7 @@ let spec_of_iface exec_state cli = function
   | Filename Output ->
     Arg.String (fun m -> exec_state.output := m)
   | List (Filename Input) ->
-    Arg.String (fun m -> exec_state.inputs := (O.Stream m)::!(exec_state.inputs))
+    Arg.String (fun m -> exec_state.inputs := (Stream m)::!(exec_state.inputs))
   | Filename Meta ->
     Arg.String (fun m -> exec_state.metadata := Some m)
   | Filename Base ->

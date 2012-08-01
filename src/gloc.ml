@@ -1,4 +1,4 @@
-(* Copyright (c) 2011 Ashima Arts. All rights reserved.
+(* Copyright (c) 2011 Ahima Arts. All rights reserved.
  * Author: David Sheets
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
@@ -89,7 +89,7 @@ module Make(P : World.Platform) = struct
 
   let streamp = function Stream _ -> true | _ -> false
   let stream_inputp il = List.exists streamp il
-  let glom_of_input = function Stream f -> f | Def f -> f
+  let glom_of_input = function Stream f -> Uri.to_string f | Def f -> f | STDIN -> "-"
 
   let prologue options = List.fold_left
     (fun s ds -> (make_define_line ds)^s) "" options.prologue
@@ -100,7 +100,8 @@ module Make(P : World.Platform) = struct
   (* Generate a glolli expr *)
   let gen_glolli options =
     let glolli_of_input = function
-      | Stream i -> if "-"=i then `A "file:-" else `A i
+      | STDIN -> `A "file:-" 
+      | Stream path -> `A (Uri.to_string path)
       | Def ds -> `Define (split_define_string ds)
     in
     let inputs = match options.inputs with
@@ -135,8 +136,11 @@ module Make(P : World.Platform) = struct
     let scheme = match Uri.scheme uri with
       | Some s -> s
       | None -> "file" in
+    let path = match options.output with
+      | STDOUT -> "{STDOUT}"
+      | Path path -> Uri.to_string path in
     if "file"=scheme
-    then Lwt.return (options.output,glom)
+    then Lwt.return (path,glom)
     else Lwt.return ("<"^(Uri.to_string uri)^">",glom)
 
   let gloc options =
@@ -150,19 +154,19 @@ module Make(P : World.Platform) = struct
     let glolli = gen_glolli options in
     let base = options.base in
     let glol = {Glol_lib.glol=Glol.glol_version;
-                Glol_lib.base=(if base = "" then None else Some base);
+                Glol_lib.base=(if base = Uri.of_string "" then None else Some (Uri.to_string base));
                 Glol_lib.transmit=None;
                 Glol_lib.li=Some glolli;
                 Glol_lib.cache=[];
                 Glol_lib.glom=None} in
 
     let base = Uri.resolve P.default_scheme
-      (Uri.of_string P.base) (Uri.of_string base) in
+      (Uri.of_string P.base) base in
 
     let () = World.runtime_base := (Uri.to_string base) in
 
     let uri = Uri.resolve P.default_scheme
-      base (Uri.of_string options.output) in
+      base (let Path actual = options.output in actual) in (* TODO: Handle STDOUT *)
 
     try_lwt begin
       lwt result = match options.stage with
@@ -172,7 +176,7 @@ module Make(P : World.Platform) = struct
             | XML -> "" (* TODO: do *) (*Glol_xml.xml_of_glol ~pretty:true glol*)
           )
         | Contents ->
-          lwt (path,glom) = nglom_of_glol options uri glol in
+          lwt (path,glom) = nglom_of_glol options uri glol in (* TODO: Handle STDOUT *)
             P.out_of_url uri (source_of_glom path glom)
         | Link ->
           let prologue = prologue options in
@@ -185,7 +189,7 @@ module Make(P : World.Platform) = struct
                         (parse options.inlang src)))
                else src)
         | Compile -> (* TODO: consolidate glo? *)
-          lwt (path,glom) = nglom_of_glol options uri glol in
+          lwt (path,glom) = nglom_of_glol options uri glol in (* TODO: Handle STDOUT *)
             begin match options.format with
               | JSON -> P.out_of_url uri
                 (write_glom options path (minimize_glom glom))
@@ -193,7 +197,7 @@ module Make(P : World.Platform) = struct
                 (Glo_xml.xml_of_glom ~pretty:true glom)
             end
         | Preprocess | ParsePP ->
-          lwt (path,glom) = nglom_of_glol options uri glol in
+          lwt (path,glom) = nglom_of_glol options uri glol in (* TODO: Handle STDOUT *)
           let prologue = prologue options in
             P.out_of_url uri (write_glopp options path prologue glom)
       in match result with

@@ -75,7 +75,7 @@ let glo_of_source =
       Some (fun path src ->
         compile {(O.default_options None) with
           O.stage = O.Compile;
-          O.base = path
+          O.base = Uri.of_string path
         } path src)
 
 ;;

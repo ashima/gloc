@@ -3,23 +3,24 @@ open Semver
 type stage = Glolli | Contents | ParsePP | Preprocess | Compile | Link
 type format = XML | JSON
 
-type 'a input = Stream of 'a | Def of 'a
-    
+type input = STDIN | Stream of Uri.t | Def of string (* Stream of uri | Def of string *)
+type output = STDOUT | Path of Uri.t
+
 type 'a options = {
   stage    : stage;
   format   : format;
   verbose  : bool;
   dissolve : bool;
   linectrl : bool;
-  metadata : 'a option;
-  renames  : string list;
-  exports  : string list;
-  symbols  : string list;
-  base     : string;
-  output   : string;                    (* Maybe mark stdout with the type system? *)
-  inputs   : string input list;
+  metadata : 'a;
+  renames  : string list;               (* symbol * symbol list *)
+  exports  : string list;               (* symbol list *)
+  symbols  : string list;               (* symbol list *)
+  base     : Uri.t;
+  output   : output;
+  inputs   : input list;
   prologue : string list;
-  inlang   : Language.language;
+  inlang   : Language.language;         
   outlang  : Language.language;
   accuracy : Language.accuracy;
 }
@@ -38,8 +39,8 @@ let default_options meta = {
   renames  = [];
   exports  = [];
   symbols  = [];
-  base     = "";
-  output   = "-"; 
+  base     = Uri.of_string "";
+  output   = STDOUT; 
   inputs   = [];
   prologue = [];
   inlang   = default_lang;
