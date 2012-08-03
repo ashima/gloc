@@ -9,8 +9,10 @@
 <platform_posix.*>: syntax(camlp4o), package(lwt), package(lwt.unix), package(lwt.syntax), package(cohttpd)
 <gloc_js.*>: syntax(camlp4o), package(ulex), package(atdgen), package(menhirLib), package(re.str), package(js_of_ocaml), package(js_of_ocaml.syntax), package(lwt.syntax), package(uri)
 <platform_js.*>: syntax(camlp4o), package(uri), package(js_of_ocaml), package(js_of_ocaml.syntax)
+
 <options.*>: package(semver), package(uri)
 <cli.*>: package(semver), package(uri)
+<query.*>: package(uri)
 
 <gloc_xml.*>: package(atdgen), package(ulex), package(menhirLib), package(re.str), package(lwt)
 <gloc_lib.*>: package(atdgen), package(re.str)

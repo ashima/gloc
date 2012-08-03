@@ -176,7 +176,7 @@ module Make(P : World.Platform) = struct
             | XML -> "" (* TODO: do *) (*Glol_xml.xml_of_glol ~pretty:true glol*)
           )
         | Contents ->
-          lwt (path,glom) = nglom_of_glol options uri glol in (* TODO: Handle STDOUT *)
+          lwt (path,glom) = nglom_of_glol options uri glol in 
             P.out_of_url uri (source_of_glom path glom)
         | Link ->
           let prologue = prologue options in
@@ -189,7 +189,7 @@ module Make(P : World.Platform) = struct
                         (parse options.inlang src)))
                else src)
         | Compile -> (* TODO: consolidate glo? *)
-          lwt (path,glom) = nglom_of_glol options uri glol in (* TODO: Handle STDOUT *)
+          lwt (path,glom) = nglom_of_glol options uri glol in 
             begin match options.format with
               | JSON -> P.out_of_url uri
                 (write_glom options path (minimize_glom glom))
@@ -197,7 +197,7 @@ module Make(P : World.Platform) = struct
                 (Glo_xml.xml_of_glom ~pretty:true glom)
             end
         | Preprocess | ParsePP ->
-          lwt (path,glom) = nglom_of_glol options uri glol in (* TODO: Handle STDOUT *)
+          lwt (path,glom) = nglom_of_glol options uri glol in 
           let prologue = prologue options in
             P.out_of_url uri (write_glopp options path prologue glom)
       in match result with

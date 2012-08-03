@@ -50,3 +50,55 @@ let default_options meta = {
 
 let gloc_version = Semver (1, 1, 0)
 let gloc_distributor = "Ashima Arts"
+
+type argument_type = Flag
+                   | Filepath           (* A file path or std(in|out) *)
+                   | Choice of string list
+                   | String             (* Code and symbols *)
+
+(* name(s), repeatable, type*)
+let options = [
+  [""], true, Filepath;                          (* input files... *)
+  ["c"; "E"; "e"; "source"; "glolli"], false, Flag;
+  ["json"; "xml"], false, Flag;
+  ["u"], true, String;
+  ["define"], true, String;
+  ["D"], true, String;
+  ["o"], false, Filepath;
+  ["accuracy"], false, Choice ["best"; "preprocess"];
+  ["line"], false, Flag;
+  ["x"], false, Choice ["webgl"];
+  ["t"], false, Choice ["webgl"];
+  ["dissolve"], false, Flag;
+  ["rename"], true, String;
+  ["export"], true, String;
+  ["v"], false, Flag;
+  ["meta"], false, Filepath;
+  ["base"], false, Filepath;
+]
+
+let help = [
+  ["", "source input"];
+  ["", "produce linked SL"];
+  ["c", "produce glo and halt; do not link"];
+  ["E", "preprocess and halt; do not parse SL"];
+  ["e", "parse preprocessor and halt; do not preprocess"];
+  ["source", "strip the glo format and return the contained source"];
+  ["glolli", "generate the glolli expression from this command"];
+  ["json", "produce JSON (default)"];
+  ["xml", "produce XML"];
+  ["u", "required symbol (default ['main'])"];
+  ["define", "define a macro unit"];
+  ["D", "define a global macro"];
+  ["o", "output file"];
+  ["accuracy", "output accuracy"];
+  ["line", "disregard incoming line directives"];
+  ["x", "source language"];
+  ["t", "target language"];
+  ["dissolve", "dissolve declarations"];
+  ["rename", "rename identifiers"];
+  ["export", "export identifiers"];
+  ["v", "verbose"];
+  ["meta", "prototypical glo file to use for metadata"];
+  ["base", "base URI"];
+]
