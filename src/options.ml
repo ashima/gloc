@@ -51,30 +51,91 @@ let default_options meta = {
 let gloc_version = Semver (1, 1, 0)
 let gloc_distributor = "Ashima Arts"
 
-type argument_type = Flag
-                   | Filepath           (* A file path or std(in|out) *)
-                   | Choice of string list
-                   | String             (* Code and symbols *)
+(* Use the iface types in my interface specification *)
+type group = Stage of stage | Format of format 
+type set = LinkSymbols | LinkDefines | LinkGlobalMacros | LinkRenames | LinkExports 
+type option_flag = DisableLineControl | Verbose | Dissolve
+type filetype = Output | Meta | Input | Base
+type iface =
+    Group of group
+  | Set of set
+  | List of iface
+  | Filename of filetype
+  | Option of option_flag
+  | Choice of string list
+
+let stage_of_string = function
+  | ""       -> Link
+  | "c"      -> Compile
+  | "E"      -> Preprocess
+  | "e"      -> ParsePP
+  | "source" -> Contents
+  | "glolli" -> Glolli
+
+let format_of_string = function
+  | "json" -> JSON
+  | "xml" -> XML
+
+let input_of_string = function
+  | "-"  -> STDIN
+  | path -> Stream (Uri.of_string path)
+
+let output_of_string = function
+  | ""   -> STDOUT
+  | path -> Path path
+
+let get_flag flag params = exists (fun x -> fst x = flag) params
+
+let get_flags flags default params = try find (fun x -> mem (fst x) flags) params
+  with Not_found -> default
+
+let get_string name default  params = try snd (find (fun x -> fst x = name)) params
+  with Not_found -> default
+
+let get_strings name params = map snd (filter (fun x -> fst x = name) params)
+
+(* Maps an assoc list of iface names and strings to an options object *)
+let options_of_iface iface = {          (* TODO: Test this properly. *)
+  stage = stage_of_string (get_flags ["c", "E", "e", "source", "glolli"] "" iface);
+  format = format_of_string (get_flags ["json", "xml"] "json" iface);
+  verbose = get_flag "v";
+  dissolve = get_flag "dissolve";
+  linectrl = get_flag "line";
+  metadata = None;
+  renames = get_strings "rename" iface;
+  exports = get_strings "export" iface;
+  symbols = get_strings "u" iface;
+  inputs = append (map input_of_string (append (get_strings "input" iface)
+                                          (get_strings "" iface)))
+    (map (fun x -> Def x) (append (get_strings "define" iface)
+                          (get_strings "D" iface))); (* This bit makes it look like Lisp... *)
+  output = output_of_string (get_string "o" "" iface);
+  base = Uri.of_string (get_string "base" "" iface);
+  prologue = [];
+  inlang = language_of_string (get_string "x" "webgl" iface);
+  outlang = language_of_string (get_string "t" "webgl" iface);
+  accuracy = accuracy_of_string (get_string "accuracy" "best" iface);
+}
 
 (* name(s), repeatable, type*)
 let options = [
-  [""], true, Filepath;                          (* input files... *)
-  ["c"; "E"; "e"; "source"; "glolli"], false, Flag;
-  ["json"; "xml"], false, Flag;
-  ["u"], true, String;
-  ["define"], true, String;
-  ["D"], true, String;
-  ["o"], false, Filepath;
-  ["accuracy"], false, Choice ["best"; "preprocess"];
-  ["line"], false, Flag;
-  ["x"], false, Choice ["webgl"];
-  ["t"], false, Choice ["webgl"];
-  ["dissolve"], false, Flag;
-  ["rename"], true, String;
-  ["export"], true, String;
-  ["v"], false, Flag;
-  ["meta"], false, Filepath;
-  ["base"], false, Filepath;
+  [""], true;                          (* input files... *)
+  ["c"; "E"; "e"; "source"; "glolli"], false;
+  ["json"; "xml"], false;
+  ["u"], true;
+  ["define"], true;
+  ["D"], true;
+  ["o"], false;
+  ["accuracy"], false;
+  ["line"], false;
+  ["x"], false;
+  ["t"], false;
+  ["dissolve"], false;
+  ["rename"], true;
+  ["export"], true;
+  ["v"], false;
+  ["meta"], false;
+  ["base"], false;
 ]
 
 let help = [
