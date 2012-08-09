@@ -1,3 +1,4 @@
+open List
 open Semver
 
 type stage = Glolli | Contents | ParsePP | Preprocess | Compile | Link
@@ -65,16 +66,16 @@ type iface =
   | Choice of string list
 
 let stage_of_string = function
-  | ""       -> Link
   | "c"      -> Compile
   | "E"      -> Preprocess
   | "e"      -> ParsePP
   | "source" -> Contents
   | "glolli" -> Glolli
+  | _        -> Link
 
 let format_of_string = function
-  | "json" -> JSON
   | "xml" -> XML
+  | _     -> JSON
 
 let input_of_string = function
   | "-"  -> STDIN
@@ -82,25 +83,29 @@ let input_of_string = function
 
 let output_of_string = function
   | ""   -> STDOUT
-  | path -> Path path
+  | path -> Path (Uri.of_string path)
+
+let accuracy_of_string = function
+  | "preprocess" -> Language.Preprocess
+  | _            -> Language.Best
 
 let get_flag flag params = exists (fun x -> fst x = flag) params
 
-let get_flags flags default params = try find (fun x -> mem (fst x) flags) params
+let get_flags flags default params = try fst (find (fun x -> mem (fst x) flags) params)
   with Not_found -> default
 
-let get_string name default  params = try snd (find (fun x -> fst x = name)) params
+let get_string name default params = try snd (find (fun x -> fst x = name) params)
   with Not_found -> default
 
 let get_strings name params = map snd (filter (fun x -> fst x = name) params)
 
 (* Maps an assoc list of iface names and strings to an options object *)
-let options_of_iface iface = {          (* TODO: Test this properly. *)
-  stage = stage_of_string (get_flags ["c", "E", "e", "source", "glolli"] "" iface);
-  format = format_of_string (get_flags ["json", "xml"] "json" iface);
-  verbose = get_flag "v";
-  dissolve = get_flag "dissolve";
-  linectrl = get_flag "line";
+let options_of_iface iface = {
+  stage = stage_of_string (get_flags ["c"; "E"; "e"; "source"; "glolli"] "" iface);
+  format = format_of_string (get_flags ["json"; "xml"] "json" iface);
+  verbose = get_flag "v" iface;
+  dissolve = get_flag "dissolve" iface;
+  linectrl = get_flag "line" iface;
   metadata = None;
   renames = get_strings "rename" iface;
   exports = get_strings "export" iface;
@@ -112,8 +117,8 @@ let options_of_iface iface = {          (* TODO: Test this properly. *)
   output = output_of_string (get_string "o" "" iface);
   base = Uri.of_string (get_string "base" "" iface);
   prologue = [];
-  inlang = language_of_string (get_string "x" "webgl" iface);
-  outlang = language_of_string (get_string "t" "webgl" iface);
+  inlang = default_lang;
+  outlang = default_lang;
   accuracy = accuracy_of_string (get_string "accuracy" "best" iface);
 }
 
