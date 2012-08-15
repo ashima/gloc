@@ -73,17 +73,38 @@ let stage_of_string = function
   | "glolli" -> Glolli
   | _        -> Link
 
+let string_of_stage = function
+  | Compile    -> "c"
+  | Preprocess -> "E"
+  | ParsePP    -> "e"
+  | Contents   -> "source"
+  | Glolli     -> "glolli"
+  | Link       -> ""
+
 let format_of_string = function
   | "xml" -> XML
   | _     -> JSON
+
+let string_of_format = function
+  | XML  -> "xml"
+  | JSON -> "json"
 
 let input_of_string = function
   | "-"  -> STDIN
   | path -> Stream (Uri.of_string path)
 
+let kvpair_of_input = function
+  | STDIN    -> ("","-")
+  | Stream s -> ("", Uri.to_string s)
+  | Def d    -> ("define", d)
+
 let output_of_string = function
   | ""   -> STDOUT
   | path -> Path (Uri.of_string path)
+
+let string_of_output = function
+  | STDOUT -> ""
+  | Path p -> Uri.to_string p
 
 let accuracy_of_string = function
   | "preprocess" -> Language.Preprocess
@@ -99,28 +120,51 @@ let get_string name default params = try snd (find (fun x -> fst x = name) param
 
 let get_strings name params = map snd (filter (fun x -> fst x = name) params)
 
+let get_params name values = map (fun x -> (name, x)) values
+
 (* Maps an assoc list of iface names and strings to an options object *)
 let options_of_iface iface = {
-  stage = stage_of_string (get_flags ["c"; "E"; "e"; "source"; "glolli"] "" iface);
-  format = format_of_string (get_flags ["json"; "xml"] "json" iface);
-  verbose = get_flag "v" iface;
+  stage    = stage_of_string (get_flags ["c"; "E"; "e"; "source"; "glolli"] "" iface);
+  format   = format_of_string (get_flags ["json"; "xml"] "json" iface);
+  verbose  = get_flag "v" iface;
   dissolve = get_flag "dissolve" iface;
   linectrl = get_flag "line" iface;
   metadata = None;
-  renames = get_strings "rename" iface;
-  exports = get_strings "export" iface;
-  symbols = get_strings "u" iface;
-  inputs = append (map input_of_string (append (get_strings "input" iface)
+  renames  = get_strings "rename" iface;
+  exports  = get_strings "export" iface;
+  symbols  = get_strings "u" iface;
+  inputs   = append (map input_of_string (append (get_strings "input" iface)
                                           (get_strings "" iface)))
     (map (fun x -> Def x) (append (get_strings "define" iface)
                           (get_strings "D" iface))); (* This bit makes it look like Lisp... *)
-  output = output_of_string (get_string "o" "" iface);
-  base = Uri.of_string (get_string "base" "" iface);
+  output   = output_of_string (get_string "o" "" iface);
+  base     = Uri.of_string (get_string "base" "" iface);
   prologue = [];
-  inlang = default_lang;
-  outlang = default_lang;
+  inlang   = default_lang;
+  outlang  = default_lang;
   accuracy = accuracy_of_string (get_string "accuracy" "best" iface);
 }
+
+let iface_of_options options = concat [
+  [
+    string_of_stage options.stage, "";
+    string_of_format options.format, "";
+  ];
+  if options.verbose  then ["v", ""]        else [];
+  if options.dissolve then ["dissolve", ""] else [];
+  if options.linectrl then ["line", ""]     else [];
+  map kvpair_of_input options.inputs;
+  get_params "rename" options.renames;
+  get_params "export" options.exports;
+  get_params "u"      options.symbols;
+  [
+    "o", string_of_output options.output;
+    "base", Uri.to_string options.base;
+    "x", Language.string_of_dialect options.inlang.Language.dialect;
+    "t", Language.string_of_dialect options.outlang.Language.dialect;
+    "accuracy", Language.string_of_accuracy options.accuracy
+  ]
+]
 
 (* name(s), repeatable, type*)
 let options = [

@@ -17,6 +17,9 @@ let accuracy_of_string = function
   | "best" -> Best
   | "preprocess" -> Preprocess
   | _ -> Best
+let string_of_accuracy = function
+  | Best -> "best"
+  | Preprocess -> "preprocess"
 let string_of_dialect = function
   | WebGL -> "webgl"
 
