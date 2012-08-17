@@ -52,19 +52,6 @@ let default_options meta = {
 let gloc_version = Semver (1, 1, 0)
 let gloc_distributor = "Ashima Arts"
 
-(* Use the iface types in my interface specification *)
-type group = Stage of stage | Format of format 
-type set = LinkSymbols | LinkDefines | LinkGlobalMacros | LinkRenames | LinkExports 
-type option_flag = DisableLineControl | Verbose | Dissolve
-type filetype = Output | Meta | Input | Base
-type iface =
-    Group of group
-  | Set of set
-  | List of iface
-  | Filename of filetype
-  | Option of option_flag
-  | Choice of string list
-
 let stage_of_string = function
   | "c"      -> Compile
   | "E"      -> Preprocess
@@ -102,9 +89,9 @@ let output_of_string = function
   | ""   -> STDOUT
   | path -> Path (Uri.of_string path)
 
-let string_of_output = function
-  | STDOUT -> ""
-  | Path p -> Uri.to_string p
+let query_of_output = function
+  | STDOUT -> []
+  | Path p -> ["o", Uri.to_string p]
 
 let accuracy_of_string = function
   | "preprocess" -> Language.Preprocess
@@ -123,29 +110,29 @@ let get_strings name params = map snd (filter (fun x -> fst x = name) params)
 let get_params name values = map (fun x -> (name, x)) values
 
 (* Maps an assoc list of iface names and strings to an options object *)
-let options_of_iface iface = {
-  stage    = stage_of_string (get_flags ["c"; "E"; "e"; "source"; "glolli"] "" iface);
-  format   = format_of_string (get_flags ["json"; "xml"] "json" iface);
-  verbose  = get_flag "v" iface;
-  dissolve = get_flag "dissolve" iface;
-  linectrl = get_flag "line" iface;
+let options_of_alist alist = {
+  stage    = stage_of_string (get_flags ["c"; "E"; "e"; "source"; "glolli"] "" alist);
+  format   = format_of_string (get_flags ["json"; "xml"] "json" alist);
+  verbose  = get_flag "v" alist;
+  dissolve = get_flag "dissolve" alist;
+  linectrl = get_flag "line" alist;
   metadata = None;
-  renames  = get_strings "rename" iface;
-  exports  = get_strings "export" iface;
-  symbols  = get_strings "u" iface;
-  inputs   = append (map input_of_string (append (get_strings "input" iface)
-                                          (get_strings "" iface)))
-    (map (fun x -> Def x) (append (get_strings "define" iface)
-                          (get_strings "D" iface))); (* This bit makes it look like Lisp... *)
-  output   = output_of_string (get_string "o" "" iface);
-  base     = Uri.of_string (get_string "base" "" iface);
-  prologue = [];
+  renames  = get_strings "rename" alist;
+  exports  = get_strings "export" alist;
+  symbols  = get_strings "u" alist;
+  inputs   = append (map input_of_string (append (get_strings "input" alist)
+                                          (get_strings "" alist)))
+    (map (fun x -> Def x) (append (get_strings "define" alist)
+                          (get_strings "D" alist))); (* This bit makes it look like Lisp... *)
+  output   = output_of_string (get_string "o" "" alist);
+  base     = Uri.of_string (get_string "base" "" alist);
+  prologue = [];                        (* TODO: How is the prologue specified? *)
   inlang   = default_lang;
   outlang  = default_lang;
-  accuracy = accuracy_of_string (get_string "accuracy" "best" iface);
+  accuracy = accuracy_of_string (get_string "accuracy" "best" alist);
 }
 
-let iface_of_options options = concat [
+let alist_of_options options = concat [
   [
     string_of_stage options.stage, "";
     string_of_format options.format, "";
@@ -153,21 +140,21 @@ let iface_of_options options = concat [
   if options.verbose  then ["v", ""]        else [];
   if options.dissolve then ["dissolve", ""] else [];
   if options.linectrl then ["line", ""]     else [];
+  query_of_output options.output;
   map kvpair_of_input options.inputs;
   get_params "rename" options.renames;
   get_params "export" options.exports;
   get_params "u"      options.symbols;
-  [
-    "o", string_of_output options.output;
-    "base", Uri.to_string options.base;
-    "x", Language.string_of_dialect options.inlang.Language.dialect;
-    "t", Language.string_of_dialect options.outlang.Language.dialect;
-    "accuracy", Language.string_of_accuracy options.accuracy
+  let open Language in [
+    "base",     Uri.to_string options.base;
+    "x",        string_of_dialect options.inlang.dialect;
+    "t",        string_of_dialect options.outlang.dialect;
+    "accuracy", string_of_accuracy options.accuracy
   ]
 ]
 
-(* name(s), repeatable, type*)
-let options = [
+(* name(s), repeatable, help message *)
+let options = [ (* TODO: Add a type specification to each input option *)
   [""], true;                          (* input files... *)
   ["c"; "E"; "e"; "source"; "glolli"], false;
   ["json"; "xml"], false;
@@ -187,7 +174,7 @@ let options = [
   ["base"], false;
 ]
 
-let help = [
+let help = [ 
   ["", "source input"];
   ["", "produce linked SL"];
   ["c", "produce glo and halt; do not link"];
