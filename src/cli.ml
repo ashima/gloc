@@ -200,3 +200,19 @@ let options_of_args platform_id args =
   let (specs, anon) = arg_of_cli exec_state cli_spec in
   let () = Arg.parse_argv ~current:(ref 0) args specs anon (usage_msg platform_id) in
   freeze exec_state
+
+(* This takes an alist like the one used for the URI query and turns
+   it into a command-line command. *)
+let cli_of_alist alist =
+  let toCli = function
+    | ""                         -> ""
+    | s when String.length s < 2 -> "-"^s
+    | s                          -> "--"^s in
+  let ordered_alist = List.append (List.filter (fun (x,y) -> x = "") alist)
+                                  (List.filter (fun (x,y) -> x <> "") alist) in
+  let process = function
+    | "", ""      -> ""
+    | name, value -> toCli name ^ " " ^ String.escaped value ^ " " in
+  "gloc" ^ List.fold_left (^) "" (List.map process ordered_alist)
+
+let cli_of_options options = cli_of_alist (alist_of_options options)
