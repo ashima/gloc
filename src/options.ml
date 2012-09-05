@@ -1,10 +1,15 @@
+(* Copyright (c) 2012 Ashima Arts. All rights reserved.
+ * Author: Tikhon Jelvis
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ *)
 open List
 open Semver
 
 type stage = Glolli | Contents | ParsePP | Preprocess | Compile | Link
 type format = XML | JSON
 
-type input = STDIN | Stream of Uri.t | Def of string (* Stream of uri | Def of string *)
+type input = STDIN | Stream of Uri.t | Def of string
 type output = STDOUT | Path of Uri.t
 
 type 'a options = {
@@ -21,7 +26,7 @@ type 'a options = {
   output   : output;
   inputs   : input list;
   prologue : string list;
-  inlang   : Language.language;         
+  inlang   : Language.language;
   outlang  : Language.language;
   accuracy : Language.accuracy;
 }
@@ -49,7 +54,7 @@ let default_options meta = {
   accuracy = Language.Best;
 }
 
-let gloc_version = Semver (1, 1, 0)
+let gloc_version = Semver (2, 0, 0)
 let gloc_distributor = "Ashima Arts"
 
 let stage_of_string = function
@@ -174,7 +179,7 @@ let options = [ (* TODO: Add a type specification to each input option *)
   ["base"], false;
 ]
 
-let help = [ 
+let help = [
   ["", "source input"];
   ["", "produce linked SL"];
   ["c", "produce glo and halt; do not link"];

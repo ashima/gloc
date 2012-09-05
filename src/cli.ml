@@ -1,3 +1,8 @@
+(* Copyright (c) 2012 Ashima Arts. All rights reserved.
+ * Author: Tikhon Jelvis
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ *)
 open Gloc_lib
 open Semver
 module O = Options
