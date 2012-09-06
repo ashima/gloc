@@ -9,7 +9,7 @@ open Semver
 type stage = Glolli | Contents | ParsePP | Preprocess | Compile | Link
 type format = XML | JSON
 
-type input = STDIN | Stream of Uri.t | Def of string
+type input = STDIN | Stream of Uri.t | Def of string * string
 type output = STDOUT | Path of Uri.t
 
 type 'a options = {
@@ -30,6 +30,10 @@ type 'a options = {
   outlang  : Language.language;
   accuracy : Language.accuracy;
 }
+
+exception UnknownStage of string
+exception UnknownFormat of string
+exception UnknownAccuracy of string
 
 let default_lang = { Language.dialect=Language.WebGL;
                      Language.version=(1,0,0);
@@ -63,7 +67,8 @@ let stage_of_string = function
   | "e"      -> ParsePP
   | "source" -> Contents
   | "glolli" -> Glolli
-  | _        -> Link
+  | ""       -> Link
+  | stage    -> raise (UnknownStage stage)
 
 let string_of_stage = function
   | Compile    -> "c"
@@ -74,45 +79,46 @@ let string_of_stage = function
   | Link       -> ""
 
 let format_of_string = function
-  | "xml" -> XML
-  | _     -> JSON
+  | "xml"       -> XML
+  | "json" | "" -> JSON
+  | format      -> raise (UnknownFormat format)
 
 let string_of_format = function
   | XML  -> "xml"
   | JSON -> "json"
 
 let input_of_string = function
-  | "-"  -> STDIN
-  | path -> Stream (Uri.of_string path)
+  | "" | "-"  -> STDIN
+  | path      -> Stream (Uri.of_string path)
 
 let kvpair_of_input = function
-  | STDIN    -> ("","-")
-  | Stream s -> ("", Uri.to_string s)
-  | Def d    -> ("define", d)
+  | STDIN    -> ("",["-"])
+  | Stream s -> ("",[Uri.to_string s])
+  | Def (m,v)-> ("define", [m^"="^v])
 
 let output_of_string = function
-  | ""   -> STDOUT
-  | path -> Path (Uri.of_string path)
+  | "" | "-" -> STDOUT
+  | path     -> Path (Uri.of_string path)
 
-let query_of_output = function
+let alist_of_output = function
   | STDOUT -> []
-  | Path p -> ["o", Uri.to_string p]
+  | Path p -> ["o", [Uri.to_string p]]
 
 let accuracy_of_string = function
   | "preprocess" -> Language.Preprocess
-  | _            -> Language.Best
+  | "best" | ""  -> Language.Best
+  | accuracy     -> raise (UnknownAccuracy accuracy)
 
-let get_flag flag params = exists (fun x -> fst x = flag) params
+let get_flag flag params = mem_assoc flag params
 
-let get_flags flags default params = try fst (find (fun x -> mem (fst x) flags) params)
+let get_flags flags default params =
+  try fst (find (fun (x,_) -> mem x flags) params)
   with Not_found -> default
 
-let get_string name default params = try snd (find (fun x -> fst x = name) params)
-  with Not_found -> default
+let get_string name default params =
+  try assoc name params with Not_found -> default
 
-let get_strings name params = map snd (filter (fun x -> fst x = name) params)
-
-let get_params name values = map (fun x -> (name, x)) values
+let get_strings name params = map snd (filter (fun (x,_) -> x = name) params)
 
 (* Maps an assoc list of iface names and strings to an options object *)
 let options_of_alist alist = {
@@ -120,42 +126,48 @@ let options_of_alist alist = {
   format   = format_of_string (get_flags ["json"; "xml"] "json" alist);
   verbose  = get_flag "v" alist;
   dissolve = get_flag "dissolve" alist;
-  linectrl = get_flag "line" alist;
-  metadata = None;
-  renames  = get_strings "rename" alist;
-  exports  = get_strings "export" alist;
-  symbols  = get_strings "u" alist;
+  linectrl = not (get_flag "line" alist);
+  metadata = (match get_string "meta" "" alist with
+    | "" -> None | uri -> Some (Uri.of_string uri));
+  renames  = concat (get_strings "rename" alist);
+  exports  = concat (get_strings "export" alist);
+  symbols  = concat (get_strings "u" alist);
+  (* TODO: fix order *)
   inputs   = append (map input_of_string (append (get_strings "input" alist)
-                                          (get_strings "" alist)))
+                                            (get_strings "" alist)))
     (map (fun x -> Def x) (append (get_strings "define" alist)
-                          (get_strings "D" alist))); (* This bit makes it look like Lisp... *)
+                             (get_strings "D" alist)));
   output   = output_of_string (get_string "o" "" alist);
   base     = Uri.of_string (get_string "base" "" alist);
-  prologue = [];                        (* TODO: How is the prologue specified? *)
+  (* TODO: generate prologue from -D *)
+  prologue = [];
   inlang   = default_lang;
   outlang  = default_lang;
   accuracy = accuracy_of_string (get_string "accuracy" "best" alist);
 }
 
+let make_params name values = map (fun x -> (name, [x])) values
+
+(* TODO: suppress defaults? *)
 let alist_of_options options = concat [
   [
-    string_of_stage options.stage, "";
-    string_of_format options.format, "";
+    string_of_stage options.stage, [];
+    string_of_format options.format, [];
   ];
-  if options.verbose  then ["v", ""]        else [];
-  if options.dissolve then ["dissolve", ""] else [];
-  if options.linectrl then ["line", ""]     else [];
-  query_of_output options.output;
+  if options.verbose  then ["v", []]        else [];
+  if options.dissolve then ["dissolve", []] else [];
+  if options.linectrl then ["line", []]     else [];
+  alist_of_output options.output;
   map kvpair_of_input options.inputs;
-  get_params "rename" options.renames;
-  get_params "export" options.exports;
-  get_params "u"      options.symbols;
+  make_params "rename" options.renames;
+  make_params "export" options.exports;
+  make_params "u"      options.symbols;
   let open Language in [
-    "base",     Uri.to_string options.base;
-    "x",        string_of_dialect options.inlang.dialect;
-    "t",        string_of_dialect options.outlang.dialect;
-    "accuracy", string_of_accuracy options.accuracy
-  ]
+    "base",     [Uri.to_string options.base];
+    "x",        [string_of_dialect options.inlang.dialect];
+    "t",        [string_of_dialect options.outlang.dialect];
+    "accuracy", [string_of_accuracy options.accuracy];
+  ];
 ]
 
 (* name(s), repeatable, help message *)

@@ -74,9 +74,7 @@ let freeze exec_state = {
   O.exports  = !(exec_state.exports);
   O.symbols  = !(exec_state.symbols);
   O.base     = Uri.of_string !(exec_state.base);
-  O.output   = (match !(exec_state.output) with
-    | "-" -> O.STDOUT
-    | path -> O.Path (Uri.of_string path));
+  O.output   = O.output_of_string !(exec_state.output);
   O.inputs   = List.map convert_input !(exec_state.inputs);
   O.prologue = !(exec_state.prologue);
   O.inlang   = !(exec_state.inlang);
@@ -210,8 +208,8 @@ let options_of_args platform_id args =
 
 (* This takes an alist like the one used for the URI query and turns
    it into a command-line command. *)
-let cli_of_alist alist =
-  let toCli = function
+let command_of_alist alist =
+  let to_cmd = function
     | ""                         -> ""
     | s when String.length s < 2 -> "-"^s
     | s                          -> "--"^s in
@@ -219,7 +217,7 @@ let cli_of_alist alist =
                                   (List.filter (fun (x,y) -> x <> "") alist) in
   let process = function
     | "", ""      -> ""
-    | name, value -> toCli name ^ " " ^ String.escaped value ^ " " in
+    | name, value -> to_cmd name ^ " " ^ String.escaped value ^ " " in
   "gloc" ^ List.fold_left (^) "" (List.map process ordered_alist)
 
-let cli_of_options options = cli_of_alist (alist_of_options options)
+let command_of_options options = command_of_alist (alist_of_options options)

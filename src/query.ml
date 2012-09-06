@@ -1,4 +1,3 @@
-open List
 open Options
 
 let options_of_uri uri = options_of_alist (Uri.query (Uri.of_string uri))
