@@ -9,7 +9,9 @@ module O = Options
 
 let string_of_platform_id = function
   | `Posix -> "posix"
+  | `Posix_client -> "posix client"
   | `Js -> "js"
+  | `Js_client -> "js client"
 
 let usage_msg platform_id = Printf.sprintf "gloc(%s) version %s (%s)"
   (string_of_platform_id platform_id)
