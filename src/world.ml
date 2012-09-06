@@ -1,5 +1,5 @@
 module type Platform = sig
-  val id : [ `Posix | `Js ]
+  val id : [ `Posix | `Posix_client | `Js | `Js_client ]
   val year : int
   val base : string
   val default_scheme : string
